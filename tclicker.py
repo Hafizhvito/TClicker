@@ -46,13 +46,13 @@ class SplashScreen:
                             font=("Arial", 16, "bold"), bg='white', fg='navy')
         title_label.pack(pady=(20, 10))
 
-        version_label = tk.Label(splash_frame, text="Version 1.0.2", 
+        version_label = tk.Label(splash_frame, text="Version 1.1.0", 
                               font=("Arial", 9), bg='white', fg='darkgray')
         version_label.pack(pady=(5, 10))
 
         welcome_label = tk.Label(splash_frame, text=(
             "Thanks for using TClicker!\n\n"
-            "New in v1.0.2:\n"
+            "New in v1.1.0:\n"
             "- Improved UI Scaling\n"
                 "- Looping Support\n"
             "- Enhanced Stability"
