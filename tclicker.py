@@ -37,7 +37,7 @@ class SplashScreen:
         title_label.pack(pady=(20, 10))
 
         # Version Information
-        version_label = tk.Label(splash_frame, text="Version 1.0.0", 
+        version_label = tk.Label(splash_frame, text="Version 1.0.2", 
                                   font=("Arial", 9), bg='white', fg='darkgray')
         version_label.pack(pady=(5, 10))
 
