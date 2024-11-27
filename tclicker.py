@@ -14,45 +14,57 @@ import json
 from pynput import keyboard as pynput_keyboard, mouse as pynput_mouse
 import logging
 import os
+import screeninfo  
 import queue
+from datetime import timedelta
 
 class SplashScreen:
     def __init__(self, master):
         self.master = master
         self.splash_window = tk.Toplevel(master)
         self.splash_window.title("TClicker")
-        self.splash_window.geometry("400x300")
-        self.splash_window.overrideredirect(True)  # Remove window decorations
-        
-        # Center the splash screen
-        self._center_window(self.splash_window)
+    
+        # Get screen width and height
+        screen_width = self.splash_window.winfo_screenwidth()
+        screen_height = self.splash_window.winfo_screenheight()
+    
+        # Ukuran splash screen yang responsif
+        splash_width = int(screen_width * 0.4)
+        splash_height = int(screen_height * 0.4)
+    
+        # Center splash screen
+        x = (screen_width - splash_width) // 2
+        y = (screen_height - splash_height) // 2
+    
+        self.splash_window.geometry(f"{splash_width}x{splash_height}+{x}+{y}")
+        self.splash_window.overrideredirect(True)
 
-        # Splash screen frame
         splash_frame = tk.Frame(self.splash_window, bg='white', borderwidth=2, relief='raised')
         splash_frame.pack(fill='both', expand=True, padx=10, pady=10)
 
-        # Logo or App Name
         title_label = tk.Label(splash_frame, text="Auto Clicker", 
-                                font=("Arial", 16, "bold"), bg='white', fg='navy')
+                            font=("Arial", 16, "bold"), bg='white', fg='navy')
         title_label.pack(pady=(20, 10))
 
-        # Version Information
         version_label = tk.Label(splash_frame, text="Version 1.0.2", 
-                                  font=("Arial", 9), bg='white', fg='darkgray')
+                              font=("Arial", 9), bg='white', fg='darkgray')
         version_label.pack(pady=(5, 10))
 
-        # Welcome Message
         welcome_label = tk.Label(splash_frame, text=(
             "Thanks for using TClicker!\n\n"
-            "Visit our GitHub repository:\n"
-            "https://github.com/Hafizhvito"
+            "New in v1.0.2:\n"
+            "- Improved UI Scaling\n"
+                "- Looping Support\n"
+            "- Enhanced Stability"
         ), font=("Arial", 10), bg='white', fg='black', justify='center')
         welcome_label.pack(pady=(10, 20))
 
-        # Add a Close button
         close_btn = ttk.Button(splash_frame, text="Open", command=self.destroy_splash)
         close_btn.pack(pady=(10, 10))
 
+    def destroy_splash(self):
+        self.splash_window.destroy()
+        self.master.deiconify()
     def _center_window(self, window):
         """Center the window on the screen"""
         window.update_idletasks()
@@ -75,7 +87,15 @@ class AutoClicker:
         # Center the main window
         self._center_window()
 
-        self.root.geometry("700x650")
+        self.root.geometry("750x650")
+
+        # Initialize missing variables
+        self.loop_mode = tk.StringVar(value='None')
+        self.loop_count = tk.IntVar(value=1)
+        self.loop_duration = tk.StringVar(value='00:00:00')
+
+        # Remaining time
+        self.remaining_time = tk.StringVar(value='00:00:00')
 
         # Enhanced status tracking
         self.is_recording = False
@@ -123,6 +143,34 @@ class AutoClicker:
         )
 
     def _create_ui(self):
+        # Frame Looping Options
+        loop_frame = ttk.LabelFrame(self.root, text="Looping Options")
+        loop_frame.pack(padx=10, pady=10, fill='x')
+
+        # Mode Looping
+        ttk.Label(loop_frame, text="Loop Mode:").pack(side='left', padx=5)
+        loop_modes = ['None', 'Fixed Count', 'Infinite', 'Timed']
+        loop_dropdown = ttk.Combobox(loop_frame, textvariable=self.loop_mode, 
+                                      values=loop_modes, state='readonly', width=15)
+        loop_dropdown.pack(side='left', padx=5)
+        loop_dropdown.set('None')
+
+        # Loop Count
+        ttk.Label(loop_frame, text="Repeat Count:").pack(side='left', padx=5)
+        loop_count_spinbox = ttk.Spinbox(loop_frame, from_=1, to=100, 
+                                          textvariable=self.loop_count, width=5)
+        loop_count_spinbox.pack(side='left', padx=5)
+
+        # Durasi Loop
+        ttk.Label(loop_frame, text="Duration (HH:MM:SS):").pack(side='left', padx=5)
+        duration_entry = ttk.Entry(loop_frame, textvariable=self.loop_duration, width=10)
+        duration_entry.pack(side='left', padx=5)
+
+        # Menampilkan waktu mundur
+        ttk.Label(loop_frame, text="Time Remaining:").pack(side='left', padx=5)
+        remaining_time_label = ttk.Label(loop_frame, textvariable=self.remaining_time)
+        remaining_time_label.pack(side='left', padx=5, expand=True, fill='x')
+
         # Frame for controls
         control_frame = ttk.LabelFrame(self.root, text="Controls")
         control_frame.pack(padx=10, pady=10, fill='x')
@@ -325,13 +373,29 @@ class AutoClicker:
         threading.Thread(target=self._play_actions, daemon=True).start()
 
     def _play_actions(self):
-        for retry in range(self.retry_var.get() + 1):
-            try:
+        try:
+            loop_mode = self.loop_mode.get()
+            loop_count = self.loop_count.get()
+            duration_str = self.loop_duration.get()
+
+            start_time = time.time()
+            end_time = None
+
+            if loop_mode == 'Timed':
+                try:
+                    hours, minutes, seconds = map(int, duration_str.split(':'))
+                    duration = timedelta(hours=hours, minutes=minutes, seconds=seconds).total_seconds()
+                    end_time = start_time + duration
+                except ValueError:
+                    raise ValueError("Invalid duration format. Use HH:MM:SS")
+
+            iterations = 0
+            while True:
+                # Logika playback
                 for action in self.recorded_actions:
                     if self.stop_event.is_set():
-                        break
+                        return
 
-                    # Dynamic delay with speed multiplier
                     adjusted_delay = action['delay'] / self.play_speed_multiplier
                     time.sleep(adjusted_delay)
 
@@ -339,15 +403,30 @@ class AutoClicker:
                         pyautogui.click(x=action['x'], y=action['y'])
                     elif action['type'] == 'key':
                         pyautogui.press(action['key'].replace("'", ""))
-                
-                # Successful playback
-                self.stop_playing()
-                break
-            except Exception as e:
-                logging.error(f"Playback error (Attempt {retry + 1}): {e}")
-                if retry == self.retry_var.get():
-                    messagebox.showerror("Error", f"Playback failed after {retry + 1} attempts: {e}")
-                    self.stop_playing()
+
+                # Update remaining time for Timed loop
+                if loop_mode == 'Timed' and end_time:
+                    remaining_seconds = max(0, int(end_time - time.time()))
+                    hours, remainder = divmod(remaining_seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    self.remaining_time.set(f"{hours:02}:{minutes:02}:{seconds:02}")
+
+                iterations += 1
+
+                # Cek kondisi berhenti
+                if loop_mode == 'Fixed Count' and iterations >= loop_count:
+                    break
+                elif loop_mode == 'Timed' and time.time() >= end_time:
+                    break
+                elif loop_mode == 'None':
+                    break
+
+            self.stop_playing()
+
+        except Exception as e:
+            logging.error(f"Playback error: {e}")
+            messagebox.showerror("Error", f"Playback failed: {e}")
+            self.stop_playing()
 
     def stop_playing(self):
         self.is_playing = False
